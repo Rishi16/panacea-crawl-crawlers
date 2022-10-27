@@ -1,7 +1,7 @@
 import os
 
-import general
-from panacea_crawl import Spider
+import panacea_crawl.general as general
+from panacea_crawl.panacea_crawl import Spider
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
