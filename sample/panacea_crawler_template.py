@@ -30,7 +30,7 @@ class Crawler(Spider):
     # Crawler begins here.
     # input_row list will contain a single tab separated input from the input_file
     def initiate(self, input_row, region, proxies_from_tool, thread_name):
-        data, session = general.get_url("https://www.google.com")
+        data, session = general.get_url(input_row[0])
         cache_page_url = general.save_cache(data["text"])
         self.push_data("found", [[cache_page_url]])
 

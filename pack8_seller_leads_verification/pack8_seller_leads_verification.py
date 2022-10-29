@@ -19,21 +19,55 @@ class Crawler(Spider):
         super().cache()
         general.header_values(
             [
-                "category_path",
-                "category_url",
-                "product_url_mod",
-                "product_url",
-                "page_url",
-                "deal_type",
+                "Website",
+                "Keyword Macthed"
             ]
+        )
+        self.websites = {}
+        self.keywords = (
+            "void fill",
+            "void filling",
+            "cushion",
+            "geami",
+            "paper wrap",
+            "coil",
+            "ecommerce",
+            "transit",
+            "damage",
+            "shredded",
+            "hexacel",
+            "honeycomb",
         )
 
     # Crawler begins here.
     # input_row list will contain a single tab separated input from the input_file
     def initiate(self, input_row, region, proxies_from_tool, thread_name):
-        data, session = general.get_url("https://www.google.com")
-        cache_page_url = general.save_cache(data["text"])
-        self.push_data("found", [[cache_page_url]])
+        data, session = general.get_url(input_row[0], proxies=False)
+        self.websites[input_row[0]] = set()
+        website = input_row[0].split(".", 1)[1]
+        if not self.traverse(data, website, input_row[0]):
+            self.push_data2("found", [[input_row[0], "NO"]])
+        del self.websites[input_row[0]]
+        # cache_page_url = general.save_cache(data["text"])
+        # self.push_data("found", [[cache_page_url]])
+
+    def traverse(self, data, website, full_url):
+        urls = [
+            url
+            for url in list(set(general.xpath(data["source"], "//a/@href", mode="set")))
+            if website in url and url.startswith("https") and url not in self.websites
+        ]
+        for url in urls:
+            self.websites[full_url].add(url)
+            data, session = general.get_url(url, proxies=False)
+            if any(keyword in data["text"].lower() for keyword in self.keywords):
+                self.push_data2("found", [[full_url, "YES"]])
+                return True
+            else:
+                done = self.traverse(data, website, full_url)
+                if done:
+                    return True
+        return False
 
 
 if __name__ == "__main__":
