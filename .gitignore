@@ -172,3 +172,4 @@ zoho_punch/zoho_punched_out
 /zoho_punch/cache/
 /zoho_punch/selenium/
 zoho_punch/hidden.py
+**/*.log
