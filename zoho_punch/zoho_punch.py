@@ -8,6 +8,8 @@ from selenium.webdriver.common.by import By
 import panacea_crawl.general as general
 from panacea_crawl.panacea_crawl import Spider
 import requests
+import logging
+from hidden import secrets
 current_path = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -36,25 +38,31 @@ class Crawler(Spider):
     # Crawler begins here.
     # input_row list will contain a single tab separated input from the input_file
     def initiate(self, input_row, region, proxies_from_tool, thread_name):
+        self.logger.info("Initiating")
         if os.path.exists('zoho_session'):
             self.zoho_session = pickle.load(open('zoho_session', 'rb'))
+            self.logger.info(f"Zoho Session: {json.dumps(self.zoho_session)}")
         if os.path.exists('zoho_punched_in'):
             in_time = pickle.load(open('zoho_punched_in', 'rb'))
+            self.logger.info(f"In Time: {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
             time_passed = datetime.now() - in_time
             if time_passed.seconds > 9*60*60 and time_passed.days == 0:
+                self.logger.info(f"Punching Out. 9 Hrs Complete.")
                 self.punch("punchOut")
             else:
-                print(f"Punch Out Failed! Hours not complete': {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                self.logger.info(f"Punch Out Failed! Hours not complete': {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
         elif os.path.exists('zoho_punched_out'):
             out_time = pickle.load(open('zoho_punched_out', 'rb'))
+            self.logger.info(f"Out Time: {out_time.strftime('%m/%d/%Y, %H:%M:%S')}")
             if datetime.now().day != out_time.day:
+                self.logger.info(f"New day. Punching In.")
                 self.punch("punchIn")
         else:
+            self.logger.info("New Beginnings")
             self.punch("punchIn")
 
     def punch(self, type):
         relogin = True
-        print(self.zoho_session)
         if self.zoho_session:
             url = f"https://people.zoho.com/hrmsbct/AttendanceAction.zp?mode={type}"
             payload = {
@@ -83,31 +91,37 @@ class Crawler(Spider):
             try:
                 response = requests.request("POST", url, headers=headers, data=payload).json()
                 if not response.get('msg', {}).get('error', '') and not response.get('code') == 'INVALID_CSRF_TOKEN':
+                    self.logger.info(f"Session Error:{response}")
                     relogin = False
                 if type == "punchIn":
+                    self.logger.info(f"Punch In Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                     pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
                     os.remove('zoho_punched_out')
                 if type == "punchOut":
+                    self.logger.info(f"Punch Out Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                     pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
                     os.remove('zoho_punched_in')
-                print(response)
             except json.JSONDecoder as e:
-                print(e)
+                self.logger.info(f"Session Expired.")
                 pass
         if relogin:
+            self.logger.info(f"Opening Zoho")
             data, driver = general. get_url2(url='https://people.zoho.com/hrmsbct/zp#home/dashboard', tag_to_find='//a[@class="zgh-login"]', close_session=False, all_requests=True, images=True)
             if general.wait_driver(driver, '//a[@class="zgh-login"]', 10):
+                self.logger.info(f"Logging in")
                 general.click(driver, '//a[@class="zgh-login"]')
                 general.wait_driver(driver, '//button[@id="nextbtn" and @class="btn blue"]', 60)
+                self.logger.info(f"Zoho Email")
                 general.send_text(driver, "rishikesh.shendkar@blueconchtech.com",
                                   '//input[@id="login_id" and @name="LOGIN_ID"]', 0, click=True)
             if general.wait_driver(driver, '//div[@class="ZPPimg dropdown"]', 10):
                 pass
             elif general.wait_driver(driver, '//div[@id="lightbox"]', 30):
-                general.send_text(driver, "rishikesh.shendkar@blueconchtech.com", '//input[@type="email"]', 0, click=True)
+                self.logger.info(f"Microsoft Login")
+                general.send_text(driver, secrets["email"] , '//input[@type="email"]', 0, click=True)
                 general.wait_driver(driver, '//input[@name="passwd"]', 30)
                 time.sleep(5)
-                general.send_text(driver, "678yui^&*", '//input[@name="passwd"]', 0, click=True)
+                general.send_text(driver, secrets["password"], '//input[@name="passwd"]', 0, click=True)
                 approved = general.wait_driver(driver, '//div[@id="KmsiDescription" and contains(text(),"Do this to reduce the number")]', 120)
                 if approved:
                     general.click(driver, '//input[@type="submit"]')

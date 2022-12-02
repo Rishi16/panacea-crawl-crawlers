@@ -17,12 +17,7 @@ class Crawler(Spider):
             super().debug(True)
             super().print_requests(True)
         super().cache()
-        general.header_values(
-            [
-                "Website",
-                "Keyword Macthed"
-            ]
-        )
+        general.header_values(["Website", "Keyword Macthed"])
         self.websites = {}
         self.keywords = (
             "void fill",
