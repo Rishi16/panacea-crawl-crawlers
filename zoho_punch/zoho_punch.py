@@ -44,8 +44,12 @@ class Crawler(Spider):
             if time_passed.seconds > 9*60*60 and time_passed.days == 0:
                 self.punch("punchOut")
                 os.remove('zoho_punch_status')
+            elif time_passed.days > 0:
+                os.remove('zoho_punch_status')
+                print(f"Punch Out Failed! Time Exceeded: {status.strftime('%m/%d/%Y, %H:%M:%S')}")
+                self.punch("punchIn")
             else:
-                print(f"Punch Out Failed! {'Time Exceeded' if time_passed.days != 0 else 'Hours not complete'}: {status.strftime('%m/%d/%Y, %H:%M:%S')}")
+                print(f"Punch Out Failed! Hours not complete': {status.strftime('%m/%d/%Y, %H:%M:%S')}")
         else:
             self.punch("punchIn")
 
