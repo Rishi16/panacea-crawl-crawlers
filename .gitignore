@@ -167,3 +167,4 @@ cython_debug/
 **/chromedriver.exe
 **/zoho_punch_status
 **/zoho_session
+**/request.log
