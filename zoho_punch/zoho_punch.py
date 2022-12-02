@@ -105,51 +105,60 @@ class Crawler(Spider):
                 self.logger.info(f"Session Expired.")
                 pass
         if relogin:
-            self.logger.info(f"Opening Zoho")
+            self.logger.info(f"Session restore started. Opening Zoho")
             data, driver = general. get_url2(url='https://people.zoho.com/hrmsbct/zp#home/dashboard', tag_to_find='//a[@class="zgh-login"]', close_session=False, all_requests=True, images=True)
             if general.wait_driver(driver, '//a[@class="zgh-login"]', 10):
                 self.logger.info(f"Logging in")
                 general.click(driver, '//a[@class="zgh-login"]')
                 general.wait_driver(driver, '//button[@id="nextbtn" and @class="btn blue"]', 60)
                 self.logger.info(f"Zoho Email")
-                general.send_text(driver, "rishikesh.shendkar@blueconchtech.com",
+                general.send_text(driver, secrets["email"],
                                   '//input[@id="login_id" and @name="LOGIN_ID"]', 0, click=True)
             if general.wait_driver(driver, '//div[@class="ZPPimg dropdown"]', 10):
                 pass
             elif general.wait_driver(driver, '//div[@id="lightbox"]', 30):
-                self.logger.info(f"Microsoft Login")
-                general.send_text(driver, secrets["email"] , '//input[@type="email"]', 0, click=True)
+                self.logger.info(f"Microsoft Login Email")
+                general.send_text(driver, secrets["email"], '//input[@type="email"]', 0, click=True)
                 general.wait_driver(driver, '//input[@name="passwd"]', 30)
                 time.sleep(5)
+                self.logger.info(f"Microsoft Login Password")
                 general.send_text(driver, secrets["password"], '//input[@name="passwd"]', 0, click=True)
                 approved = general.wait_driver(driver, '//div[@id="KmsiDescription" and contains(text(),"Do this to reduce the number")]', 120)
+                self.logger.info(f"Waiting for Authenticator")
                 if approved:
+                    self.logger.info(f"Authenticator Approved")
                     general.click(driver, '//input[@type="submit"]')
                 else:
                     print("Please approve the Authenticator request on your phone.")
             if general.wait_driver(driver, '//div[@class="ZPPimg dropdown"]', 120):
+                self.logger.info(f"On Zoho Dashboard")
                 if general.find_elements_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]'):
-                    print("Currently Checked Out")
+                    self.logger.info("Currently Checked Out")
                     if type == "punnchIn":
-                        print("Checking In")
+                        self.logger.info("Checking In")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]')
                         general.wait_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]', 60)
                         pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
+                        self.logger.info(
+                            f"Punch In Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_out')
                 elif general.find_elements_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]'):
-                    print("Currently Checked In")
+                    self.logger.info("Currently Checked In")
                     # in_time =
                     if type == "punchOut":
-                        print("Checking Out")
+                        self.logger.info("Checking Out")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]')
                         general.wait_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]', 60)
                         pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
+                        self.logger.info(
+                            f"Punch Out Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_in')
                 for request in driver.requests:
                     if 'https://people.zoho.com/hrmsbct/viewPhoto' in request.url:
                         headers = dict(request.headers)
                         csrf = re.findall(r'(?<=CSRF_TOKEN=)[^;]*(?=;)', headers["Cookie"])[0]
                         pickle.dump({"CSRF": csrf, "Cookie": headers["Cookie"]}, open('zoho_session', 'wb'))
+                        self.logger.info("New session saved.")
                         break
 
 
