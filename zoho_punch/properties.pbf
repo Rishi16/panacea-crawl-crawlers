@@ -1,0 +1,7 @@
+region=AE
+number_of_threads=1-200
+num_of_attempts=10
+time_out=5
+resume_crawl=off
+user_name=rishikesh.shendkar
+encoding=utf8

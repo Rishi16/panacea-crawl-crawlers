@@ -163,3 +163,7 @@ cython_debug/
 **/input_crawled.txt
 **/proxy.pbf
 **/crawling_status.pbf
+**/panacea_errors.txt
+**/chromedriver.exe
+**/zoho_punch_status
+**/zoho_session
