@@ -46,7 +46,7 @@ class Crawler(Spider):
             else:
                 print(f"Punch Out Failed! Hours not complete': {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
         elif os.path.exists('zoho_punched_out'):
-            out_time = pickle.load(open('zoho_punched_in', 'rb'))
+            out_time = pickle.load(open('zoho_punched_out', 'rb'))
             if datetime.now().day != out_time.day:
                 self.punch("punchIn")
         else:
