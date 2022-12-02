@@ -38,18 +38,17 @@ class Crawler(Spider):
     def initiate(self, input_row, region, proxies_from_tool, thread_name):
         if os.path.exists('zoho_session'):
             self.zoho_session = pickle.load(open('zoho_session', 'rb'))
-        if os.path.exists('zoho_punch_status'):
-            status = pickle.load(open('zoho_punch_status', 'rb'))
-            time_passed = datetime.now() - status
+        if os.path.exists('zoho_punched_in'):
+            in_time = pickle.load(open('zoho_punched_in', 'rb'))
+            time_passed = datetime.now() - in_time
             if time_passed.seconds > 9*60*60 and time_passed.days == 0:
                 self.punch("punchOut")
-                os.remove('zoho_punch_status')
-            elif time_passed.days > 0:
-                os.remove('zoho_punch_status')
-                print(f"Punch Out Failed! Time Exceeded: {status.strftime('%m/%d/%Y, %H:%M:%S')}")
-                self.punch("punchIn")
             else:
-                print(f"Punch Out Failed! Hours not complete': {status.strftime('%m/%d/%Y, %H:%M:%S')}")
+                print(f"Punch Out Failed! Hours not complete': {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+        elif os.path.exists('zoho_punched_out'):
+            out_time = pickle.load(open('zoho_punched_in', 'rb'))
+            if datetime.now().day != out_time.day:
+                self.punch("punchIn")
         else:
             self.punch("punchIn")
 
@@ -85,7 +84,12 @@ class Crawler(Spider):
                 response = requests.request("POST", url, headers=headers, data=payload).json()
                 if not response.get('msg', {}).get('error', '') and not response.get('code') == 'INVALID_CSRF_TOKEN':
                     relogin = False
-                pickle.dump(datetime.now(), open('zoho_punch_status', 'wb'))
+                if type == "punchIn":
+                    pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
+                    os.remove('zoho_punched_out')
+                if type == "punchOut":
+                    pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
+                    os.remove('zoho_punched_in')
                 print(response)
             except json.JSONDecoder as e:
                 print(e)
@@ -116,7 +120,8 @@ class Crawler(Spider):
                         print("Checking In")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]')
                         general.wait_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]', 60)
-                        pickle.dump(datetime.now(), open('zoho_punch_status', 'wb'))
+                        pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
+                        os.remove('zoho_punched_out')
                 elif general.find_elements_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]'):
                     print("Currently Checked In")
                     # in_time =
@@ -124,7 +129,8 @@ class Crawler(Spider):
                         print("Checking Out")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]')
                         general.wait_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]', 60)
-
+                        pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
+                        os.remove('zoho_punched_in')
                 for request in driver.requests:
                     if 'https://people.zoho.com/hrmsbct/viewPhoto' in request.url:
                         headers = dict(request.headers)

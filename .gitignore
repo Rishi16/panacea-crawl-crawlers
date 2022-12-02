@@ -165,7 +165,8 @@ cython_debug/
 **/crawling_status.pbf
 **/panacea_errors.txt
 **/chromedriver.exe
-**/zoho_punch_status
+zoho_punch/zoho_punched_in
+zoho_punch/zoho_punched_out
 **/zoho_session
 **/request.log
 /zoho_punch/cache/
