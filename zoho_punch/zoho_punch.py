@@ -16,23 +16,9 @@ current_path = os.path.dirname(os.path.abspath(__file__))
 class Crawler(Spider):
     def __init__(self, current_path, object=None):
         super().__init__(current_path, object=object)
-        if r"panacea\team_data" in current_path.lower():
-            super().debug(False)
-        else:
-            print("Debug: True")
-            super().debug(True)
-            super().print_requests(True)
-        super().cache()
-        general.header_values(
-            [
-                "category_path",
-                "category_url",
-                "product_url_mod",
-                "product_url",
-                "page_url",
-                "deal_type",
-            ]
-        )
+        print("Debug: True")
+        super().debug(True)
+        super().print_requests(True)
         self.zoho_session = None
 
     # Crawler begins here.
