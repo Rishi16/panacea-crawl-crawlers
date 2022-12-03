@@ -3,13 +3,14 @@ import os
 import pickle
 import re
 import time
-from datetime import datetime
+from datetime import datetime, date
 from selenium.webdriver.common.by import By
 import panacea_crawl.general as general
 from panacea_crawl.panacea_crawl import Spider
 import requests
 import logging
 from hidden import secrets
+
 current_path = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -20,71 +21,65 @@ class Crawler(Spider):
         super().debug(True)
         super().print_requests(True)
         self.zoho_session = None
+        self.holidays = [(date(2022, 1, 26), date(2022, 3, 8), date(2022, 5, 1), date(2022, 8, 15),
+                          date(2022, 9, 19), date(2022, 10, 2), date(2022, 10, 24),
+                          date(2022, 11, 13))]
 
     # Crawler begins here.
     # input_row list will contain a single tab separated input from the input_file
     def initiate(self, input_row, region, proxies_from_tool, thread_name):
-        self.logger.info("Initiating")
-        if os.path.exists('zoho_session'):
-            self.zoho_session = pickle.load(open('zoho_session', 'rb'))
-            self.logger.info(f"Zoho Session: {json.dumps(self.zoho_session)}")
-        if os.path.exists('zoho_punched_in'):
-            in_time = pickle.load(open('zoho_punched_in', 'rb'))
-            self.logger.info(f"In Time: {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-            time_passed = datetime.now() - in_time
-            if time_passed.seconds > 9*60*60 and time_passed.days == 0:
-                self.logger.info(f"Punching Out. 9 Hrs Complete.")
-                self.punch("punchOut")
+        if datetime.now().isoweekday() in range(1, 7) and date.today() not in self.holidays:
+            self.logger.info("Initiating")
+            if os.path.exists('zoho_session'):
+                self.zoho_session = pickle.load(open('zoho_session', 'rb'))
+                self.logger.info(f"Zoho Session: {json.dumps(self.zoho_session)}")
+                # To bored to do it. Quiting half way. I am a quitter
+                # if not os.path.exists('zoho_holidays'):
+                #     try:
+                #         reponse = self.request_zoho(
+                #             "https://people.zoho.com/hrmsbct/listHolidays.zp")
+                #     except Exception as e:
+                #         pass
+            if os.path.exists('zoho_punched_in'):
+                in_time = pickle.load(open('zoho_punched_in', 'rb'))
+                self.logger.info(f"In Time: {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                time_passed = datetime.now() - in_time
+                if time_passed.seconds > 9 * 60 * 60 and time_passed.days == 0:
+                    self.logger.info(f"Punching Out. 9 Hrs Complete.")
+                    self.punch("punchOut")
+                else:
+                    self.logger.info(
+                        f"Punch Out Failed! Hours not complete': "
+                        f"{in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+            elif os.path.exists('zoho_punched_out'):
+                out_time = pickle.load(open('zoho_punched_out', 'rb'))
+                self.logger.info(f"Out Time: {out_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                if datetime.now().day != out_time.day:
+                    self.logger.info(f"New day. Punching In.")
+                    self.punch("punchIn")
             else:
-                self.logger.info(f"Punch Out Failed! Hours not complete': {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-        elif os.path.exists('zoho_punched_out'):
-            out_time = pickle.load(open('zoho_punched_out', 'rb'))
-            self.logger.info(f"Out Time: {out_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-            if datetime.now().day != out_time.day:
-                self.logger.info(f"New day. Punching In.")
+                self.logger.info("New Beginnings")
                 self.punch("punchIn")
-        else:
-            self.logger.info("New Beginnings")
-            self.punch("punchIn")
 
     def punch(self, type):
         relogin = True
         if self.zoho_session:
-            url = f"https://people.zoho.com/hrmsbct/AttendanceAction.zp?mode={type}"
-            payload = {
-                'conreqcsr': str(self.zoho_session["CSRF"]),
-                'urlMode': 'home_dashboard',
-                'latitude': '18.5195521',
-                'longitude': '73.9456645',
-                'accuracy': '21.613'}
-            headers = {
-                'Accept': '*/*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Connection': 'keep-alive',
-                'Cookie': self.zoho_session['Cookie'],
-                'Origin': 'https://people.zoho.com',
-                'Referer': 'https://people.zoho.com/hrmsbct/zp',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, '
-                              'like Gecko) Chrome/107.0.0.0 Safari/537.36',
-                'X-Requested-With': 'XMLHttpRequest',
-                'sec-ch-ua': '"Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"'
-            }
+
             try:
-                response = requests.request("POST", url, headers=headers, data=payload).json()
-                if not response.get('msg', {}).get('error', '') and not response.get('code') == 'INVALID_CSRF_TOKEN':
-                    self.logger.info(f"Session Error:{response}")
+                url = f"https://people.zoho.com/hrmsbct/AttendanceAction.zp?mode={type}"
+                response = self.request_zoho(url).json()
+                if not response.get('msg', {}).get('error', '') and not response.get(
+                        'code') == 'INVALID_CSRF_TOKEN':
+                    self.logger.info(f"Positive: {response}")
                     relogin = False
                 if type == "punchIn":
-                    self.logger.info(f"Punch In Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
+                    self.logger.info(
+                        f"Punch In Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                     pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
                     os.remove('zoho_punched_out')
                 if type == "punchOut":
-                    self.logger.info(f"Punch Out Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
+                    self.logger.info(
+                        f"Punch Out Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                     pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
                     os.remove('zoho_punched_in')
             except json.JSONDecoder as e:
@@ -92,7 +87,9 @@ class Crawler(Spider):
                 pass
         if relogin:
             self.logger.info(f"Session restore started. Opening Zoho")
-            data, driver = general. get_url2(url='https://people.zoho.com/hrmsbct/zp#home/dashboard', tag_to_find='//a[@class="zgh-login"]', close_session=False, all_requests=True, images=True)
+            data, driver = general.get_url2(url='https://people.zoho.com/hrmsbct/zp#home/dashboard',
+                                            tag_to_find='//a[@class="zgh-login"]',
+                                            close_session=False, all_requests=True, images=True)
             if general.wait_driver(driver, '//a[@class="zgh-login"]', 10):
                 self.logger.info(f"Logging in")
                 general.click(driver, '//a[@class="zgh-login"]')
@@ -108,8 +105,12 @@ class Crawler(Spider):
                 general.wait_driver(driver, '//input[@name="passwd"]', 30)
                 time.sleep(5)
                 self.logger.info(f"Microsoft Login Password")
-                general.send_text(driver, secrets["password"], '//input[@name="passwd"]', 0, click=True)
-                approved = general.wait_driver(driver, '//div[@id="KmsiDescription" and contains(text(),"Do this to reduce the number")]', 120)
+                general.send_text(driver, secrets["password"], '//input[@name="passwd"]', 0,
+                                  click=True)
+                approved = general.wait_driver(driver,
+                                               '//div[@id="KmsiDescription" and contains(text(),'
+                                               '"Do this to reduce the number")]',
+                                               120)
                 self.logger.info(f"Waiting for Authenticator")
                 if approved:
                     self.logger.info(f"Authenticator Approved")
@@ -118,34 +119,71 @@ class Crawler(Spider):
                     print("Please approve the Authenticator request on your phone.")
             if general.wait_driver(driver, '//div[@class="ZPPimg dropdown"]', 120):
                 self.logger.info(f"On Zoho Dashboard")
-                if general.find_elements_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]'):
+                if general.find_elements_driver(driver,
+                                                '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]'):
                     self.logger.info("Currently Checked Out")
                     if type == "punnchIn":
                         self.logger.info("Checking In")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]')
-                        general.wait_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]', 60)
+                        general.wait_driver(driver,
+                                            '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]', 60)
                         pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
                         self.logger.info(
                             f"Punch In Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_out')
-                elif general.find_elements_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]'):
+                elif general.find_elements_driver(driver,
+                                                  '//div[@id="ZPD_Top_Att_Stat" and @class="out '
+                                                  'CP"]'):
                     self.logger.info("Currently Checked In")
                     # in_time =
                     if type == "punchOut":
                         self.logger.info("Checking Out")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]')
-                        general.wait_driver(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]', 60)
+                        general.wait_driver(driver,
+                                            '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]', 60)
                         pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
                         self.logger.info(
-                            f"Punch Out Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
+                            f"Punch Out Successful: "
+                            f"{datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_in')
                 for request in driver.requests:
                     if 'https://people.zoho.com/hrmsbct/viewPhoto' in request.url:
                         headers = dict(request.headers)
                         csrf = re.findall(r'(?<=CSRF_TOKEN=)[^;]*(?=;)', headers["Cookie"])[0]
-                        pickle.dump({"CSRF": csrf, "Cookie": headers["Cookie"]}, open('zoho_session', 'wb'))
+                        pickle.dump({"CSRF": csrf, "Cookie": headers["Cookie"]},
+                                    open('zoho_session', 'wb'))
                         self.logger.info("New session saved.")
                         break
+
+    def request_zoho(self, url):
+        payload = {
+            'conreqcsr': str(self.zoho_session["CSRF"]),
+            'urlMode': 'home_dashboard',
+            'latitude': '18.5195521',
+            'longitude': '73.9456645',
+            'accuracy': '21.613'}
+        headers = {
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive',
+            'Cookie': self.zoho_session['Cookie'],
+            'Origin': 'https://people.zoho.com',
+            'Referer': 'https://people.zoho.com/hrmsbct/zp',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, '
+                          'like Gecko) Chrome/107.0.0.0 Safari/537.36',
+            'X-Requested-With': 'XMLHttpRequest',
+            'sec-ch-ua': '"Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"'
+        }
+        try:
+            return requests.request("POST", url, headers=headers, data=payload)
+        except Exception as e:
+            self.logger.error(f"Request Error: {general.get_error_line(e)}")
+            raise e
 
 
 if __name__ == "__main__":
