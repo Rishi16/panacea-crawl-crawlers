@@ -1,3 +1,6 @@
 git+https://github.com/Rishi16/panacea-crawl.git
 requests~=2.28.1
 selenium~=4.5.0
+Pillow~=9.2.0
+win10toast~=0.9
+infi.systray~=0.1.12

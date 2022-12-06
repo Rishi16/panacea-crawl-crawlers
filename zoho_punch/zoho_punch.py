@@ -4,12 +4,17 @@ import pickle
 import re
 import time
 from datetime import datetime, date
+
+from PIL import Image
 from selenium.webdriver.common.by import By
 import panacea_crawl.general as general
 from panacea_crawl.panacea_crawl import Spider
 import requests
 from hidden import secrets
 from infi.systray import SysTrayIcon
+from win10toast import ToastNotifier
+
+# import pystray
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -24,9 +29,17 @@ class Crawler(Spider):
         self.holidays = [(date(2022, 1, 26), date(2022, 3, 8), date(2022, 5, 1), date(2022, 8, 15),
                           date(2022, 9, 19), date(2022, 10, 2), date(2022, 10, 24),
                           date(2022, 11, 13))]
-
-        self.systray = SysTrayIcon("icons/zoho_red.ico", 'Startup')
+        self.red_icon = current_path + "\\icons\\zoho_red.ico"
+        self.green_icon = current_path + "\\icons\\zoho_green.ico"
+        menu = (("Check In", self.green_icon, self.punch_in_context),
+                ("Check Out", self.red_icon, self.punch_out_context))
+        self.systray = SysTrayIcon(self.red_icon, 'Startup', menu_options=menu)
         self.systray.start()
+        self.toast = ToastNotifier()
+        # self.systray = pystray.Icon("Zoho Run", Image.open(self.red_icon), "Startup")
+        # self.systray.run_detached()
+        # self.systray = systray
+        self.time_passed = None
 
     # Crawler begins here.
     # input_row list will contain a single tab separated input from the input_file
@@ -47,15 +60,23 @@ class Crawler(Spider):
                 if os.path.exists('zoho_punched_in'):
                     in_time = pickle.load(open('zoho_punched_in', 'rb'))
                     self.logger.info(f"In Time: {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-                    time_passed = datetime.now() - in_time
-                    if time_passed.seconds > 9 * 60 * 60 and time_passed.days == 0:
+                    self.time_passed = datetime.now() - in_time
+                    if self.time_passed.seconds > 9 * 60 * 60 and self.time_passed.days == 0:
                         self.logger.info(f"Punching Out. 9 Hrs Complete.")
-                        self.punch("punchOut", str(time_passed.seconds/3600))
+                        self.punch("punchOut")
                     else:
                         self.logger.info(
                             f"Punch Out Failed! Hours not complete': "
-                            f"{in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-                    self.systray.update('icons/zoho_green.ico', f'Checked In: {in_time.strftime(" %H:%M")}  Hours: {time_passed.seconds//3600}:{int((time_passed.seconds%3600)//60)}')
+                            f"{in_time.strftime('%m/%d/%Y, %H:%M:%S')}. Time passed: "
+                            f"{self.time_passed.seconds//3600}:{int((self.time_passed.seconds%3600)//60)}")
+                        # time.sleep(5)
+                        message = f'Checked In: {in_time.strftime(" %H:%M")} | Hours: {self.time_passed.seconds//3600}:{(self.time_passed.seconds%3600)//60}'
+                        self.systray.update(self.green_icon, message)
+                        self.notify(message, self.green_icon)
+                        # self.systray.icon = Image.open(self.green_icon)
+                        # self.systray.title = f"{time_passed.seconds//3600}:{int((time_passed.seconds%3600)//60)}"
+                        # # self.systray.run_detached()
+
                 elif os.path.exists('zoho_punched_out'):
                     out_time = pickle.load(open('zoho_punched_out', 'rb'))
                     self.logger.info(f"Out Time: {out_time.strftime('%m/%d/%Y, %H:%M:%S')}")
@@ -67,33 +88,55 @@ class Crawler(Spider):
                     self.punch("punchIn")
             time.sleep(60*15)
 
-    def punch(self, punch_type, punch_in_time=None):
+    def punch_in_context(self, *args):
+        self.punch("punchIn", notify=True)
+
+    def punch_out_context(self, *args):
+        self.punch("punchOut", notify=True)
+
+    def notify(self, notification, icon, notify=False):
+        if notify:
+            self.toast.show_toast(
+                "Zoho Punch",
+                notification,
+                duration=5,
+                icon_path=icon,
+                threaded=True,
+            )
+
+    def punch(self, punch_type, notify=False):
         relogin = True
         if self.zoho_session:
             try:
                 url = f"https://people.zoho.com/hrmsbct/AttendanceAction.zp?mode={punch_type}"
                 response = self.request_zoho(url).json()
                 punch_time = datetime.now()
-                if not response.get('msg', {}).get('error', '') and not response.get(
-                        'code') == 'INVALID_CSRF_TOKEN':
+                if response.get('msg', {}).get('error', ''):
+                    self.notify(response['msg']['error'], self.green_icon, True)
+                elif response.get('code') == 'INVALID_CSRF_TOKEN':
+                    self.notify("Session Expired.", self.green_icon, True)
+                else:
                     self.logger.info(f"Positive: {response}")
                     relogin = False
-                if punch_type == "punchIn":
-                    self.logger.info(
-                        f"Punch In Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-                    pickle.dump(punch_time, open('zoho_punched_in', 'wb'))
-                    os.remove('zoho_punched_out')
-                    self.systray.update('icons/zoho_green.ico', f'Checked In: {punch_time.strftime(" %H:%M")}')
-                if punch_type == "punchOut":
-                    self.logger.info(
-                        f"Punch Out Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-                    pickle.dump(punch_time, open('zoho_punched_out', 'wb'))
-                    os.remove('zoho_punched_in')
-                    self.systray.update('icons/zoho_red.ico', f'Checked Out: {punch_time.strftime(" %H:%M")}  Hours: {punch_in_time.seconds//3600}:{(punch_in_time.seconds%3600)//60}')
-
+                    if punch_type == "punchIn":
+                        self.logger.info(
+                            f"Punch In Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                        pickle.dump(punch_time, open('zoho_punched_in', 'wb'))
+                        os.remove('zoho_punched_out')
+                        message = f'Checked In: {punch_time.strftime(" %H:%M")}'
+                        self.systray.update(self.green_icon, message)
+                        self.notify(message, self.green_icon, True)
+                    if punch_type == "punchOut":
+                        self.logger.info(
+                            f"Punch Out Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                        pickle.dump(punch_time, open('zoho_punched_out', 'wb'))
+                        os.remove('zoho_punched_in')
+                        message = f'Checked Out: {punch_time.strftime(" %H:%M")} | Hours: {self.time_passed.seconds//3600}:{(self.time_passed.seconds%3600)//60}'
+                        self.systray.update(self.red_icon, message)
+                        self.notify(message, self.red_icon, True)
             except json.JSONDecoder as e:
                 self.logger.info(f"Session Expired.")
-                pass
+                self.notify("Session Expired.", self.green_icon, True)
         if relogin:
             self.logger.info(f"Session restore started. Opening Zoho")
             data, driver = general.get_url2(url='https://people.zoho.com/hrmsbct/zp#home/dashboard',
@@ -141,7 +184,7 @@ class Crawler(Spider):
                         self.logger.info(
                             f"Punch In Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_out')
-                        self.systray.update('icons/zoho_green.ico',
+                        self.systray.update(self.green_icon,
                                             f'Checked In: {punch_time.strftime(" %H:%M")}')
 
                 elif general.find_elements_driver(driver,
@@ -159,8 +202,8 @@ class Crawler(Spider):
                             f"Punch Out Successful: "
                             f"{punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_in')
-                        self.systray.update('icons/zoho_red.ico',
-                                            f'Checked Out: {punch_time.strftime(" %H:%M")}  Hours: {punch_in_time.seconds//3600}:{(punch_in_time.seconds%3600)//60}')
+                        self.systray.update(self.red_icon,
+                                            f'Checked Out: {punch_time.strftime(" %H:%M")} | Hours: {self.time_passed.seconds//3600}:{(self.time_passed.seconds%3600)//60}')
 
                 for request in driver.requests:
                     if 'https://people.zoho.com/hrmsbct/viewPhoto' in request.url:
