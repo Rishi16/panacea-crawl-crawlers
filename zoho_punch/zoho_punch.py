@@ -8,8 +8,8 @@ from selenium.webdriver.common.by import By
 import panacea_crawl.general as general
 from panacea_crawl.panacea_crawl import Spider
 import requests
-import logging
 from hidden import secrets
+from infi.systray import SysTrayIcon
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -25,63 +25,72 @@ class Crawler(Spider):
                           date(2022, 9, 19), date(2022, 10, 2), date(2022, 10, 24),
                           date(2022, 11, 13))]
 
+        self.systray = SysTrayIcon("icons/zoho_red.ico", 'Startup')
+        self.systray.start()
+
     # Crawler begins here.
     # input_row list will contain a single tab separated input from the input_file
     def initiate(self, input_row, region, proxies_from_tool, thread_name):
-        if datetime.now().isoweekday() in range(1, 7) and date.today() not in self.holidays:
-            self.logger.info("Initiating")
-            if os.path.exists('zoho_session'):
-                self.zoho_session = pickle.load(open('zoho_session', 'rb'))
-                self.logger.info(f"Zoho Session: {json.dumps(self.zoho_session)}")
-                # To bored to do it. Quiting half way. I am a quitter
-                # if not os.path.exists('zoho_holidays'):
-                #     try:
-                #         reponse = self.request_zoho(
-                #             "https://people.zoho.com/hrmsbct/listHolidays.zp")
-                #     except Exception as e:
-                #         pass
-            if os.path.exists('zoho_punched_in'):
-                in_time = pickle.load(open('zoho_punched_in', 'rb'))
-                self.logger.info(f"In Time: {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-                time_passed = datetime.now() - in_time
-                if time_passed.seconds > 9 * 60 * 60 and time_passed.days == 0:
-                    self.logger.info(f"Punching Out. 9 Hrs Complete.")
-                    self.punch("punchOut")
+        while True:
+            if datetime.now().isoweekday() in range(1, 7) and date.today() not in self.holidays and datetime.now().hour not in range(0, 6):
+                self.logger.info("Initiating")
+                if os.path.exists('zoho_session'):
+                    self.zoho_session = pickle.load(open('zoho_session', 'rb'))
+                    self.logger.info(f"Zoho Session: {json.dumps(self.zoho_session)}")
+                    # To bored to do it. Quiting half way. I am a quitter
+                    # if not os.path.exists('zoho_holidays'):
+                    #     try:
+                    #         reponse = self.request_zoho(
+                    #             "https://people.zoho.com/hrmsbct/listHolidays.zp")
+                    #     except Exception as e:
+                    #         pass
+                if os.path.exists('zoho_punched_in'):
+                    in_time = pickle.load(open('zoho_punched_in', 'rb'))
+                    self.logger.info(f"In Time: {in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                    time_passed = datetime.now() - in_time
+                    if time_passed.seconds > 9 * 60 * 60 and time_passed.days == 0:
+                        self.logger.info(f"Punching Out. 9 Hrs Complete.")
+                        self.punch("punchOut", str(time_passed.seconds/3600))
+                    else:
+                        self.logger.info(
+                            f"Punch Out Failed! Hours not complete': "
+                            f"{in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                    self.systray.update('icons/zoho_green.ico', f'Checked In: {in_time.strftime(" %H:%M")}  Hours: {time_passed.seconds//3600}:{int((time_passed.seconds%3600)//60)}')
+                elif os.path.exists('zoho_punched_out'):
+                    out_time = pickle.load(open('zoho_punched_out', 'rb'))
+                    self.logger.info(f"Out Time: {out_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                    if datetime.now().day != out_time.day:
+                        self.logger.info(f"New day. Punching In.")
+                        self.punch("punchIn")
                 else:
-                    self.logger.info(
-                        f"Punch Out Failed! Hours not complete': "
-                        f"{in_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-            elif os.path.exists('zoho_punched_out'):
-                out_time = pickle.load(open('zoho_punched_out', 'rb'))
-                self.logger.info(f"Out Time: {out_time.strftime('%m/%d/%Y, %H:%M:%S')}")
-                if datetime.now().day != out_time.day:
-                    self.logger.info(f"New day. Punching In.")
+                    self.logger.info("New Beginnings")
                     self.punch("punchIn")
-            else:
-                self.logger.info("New Beginnings")
-                self.punch("punchIn")
+            time.sleep(60*15)
 
-    def punch(self, type):
+    def punch(self, punch_type, punch_in_time=None):
         relogin = True
         if self.zoho_session:
-
             try:
-                url = f"https://people.zoho.com/hrmsbct/AttendanceAction.zp?mode={type}"
+                url = f"https://people.zoho.com/hrmsbct/AttendanceAction.zp?mode={punch_type}"
                 response = self.request_zoho(url).json()
+                punch_time = datetime.now()
                 if not response.get('msg', {}).get('error', '') and not response.get(
                         'code') == 'INVALID_CSRF_TOKEN':
                     self.logger.info(f"Positive: {response}")
                     relogin = False
-                if type == "punchIn":
+                if punch_type == "punchIn":
                     self.logger.info(
-                        f"Punch In Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
-                    pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
+                        f"Punch In Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                    pickle.dump(punch_time, open('zoho_punched_in', 'wb'))
                     os.remove('zoho_punched_out')
-                if type == "punchOut":
+                    self.systray.update('icons/zoho_green.ico', f'Checked In: {punch_time.strftime(" %H:%M")}')
+                if punch_type == "punchOut":
                     self.logger.info(
-                        f"Punch Out Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
-                    pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
+                        f"Punch Out Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
+                    pickle.dump(punch_time, open('zoho_punched_out', 'wb'))
                     os.remove('zoho_punched_in')
+                    self.systray.update('icons/zoho_red.ico', f'Checked Out: {punch_time.strftime(" %H:%M")}  Hours: {punch_in_time.seconds//3600}:{(punch_in_time.seconds%3600)//60}')
+
             except json.JSONDecoder as e:
                 self.logger.info(f"Session Expired.")
                 pass
@@ -119,33 +128,40 @@ class Crawler(Spider):
                     print("Please approve the Authenticator request on your phone.")
             if general.wait_driver(driver, '//div[@class="ZPPimg dropdown"]', 120):
                 self.logger.info(f"On Zoho Dashboard")
+                punch_time = datetime.now()
                 if general.find_elements_driver(driver,
                                                 '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]'):
                     self.logger.info("Currently Checked Out")
-                    if type == "punnchIn":
+                    if punch_type == "punnchIn":
                         self.logger.info("Checking In")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]')
                         general.wait_driver(driver,
                                             '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]', 60)
-                        pickle.dump(datetime.now(), open('zoho_punched_in', 'wb'))
+                        pickle.dump(punch_time, open('zoho_punched_in', 'wb'))
                         self.logger.info(
-                            f"Punch In Successful: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
+                            f"Punch In Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_out')
+                        self.systray.update('icons/zoho_green.ico',
+                                            f'Checked In: {punch_time.strftime(" %H:%M")}')
+
                 elif general.find_elements_driver(driver,
                                                   '//div[@id="ZPD_Top_Att_Stat" and @class="out '
                                                   'CP"]'):
                     self.logger.info("Currently Checked In")
                     # in_time =
-                    if type == "punchOut":
+                    if punch_type == "punchOut":
                         self.logger.info("Checking Out")
                         general.click(driver, '//div[@id="ZPD_Top_Att_Stat" and @class="out CP"]')
                         general.wait_driver(driver,
                                             '//div[@id="ZPD_Top_Att_Stat" and @class="in CP"]', 60)
-                        pickle.dump(datetime.now(), open('zoho_punched_out', 'wb'))
+                        pickle.dump(punch_time, open('zoho_punched_out', 'wb'))
                         self.logger.info(
                             f"Punch Out Successful: "
-                            f"{datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}")
+                            f"{punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
                         os.remove('zoho_punched_in')
+                        self.systray.update('icons/zoho_red.ico',
+                                            f'Checked Out: {punch_time.strftime(" %H:%M")}  Hours: {punch_in_time.seconds//3600}:{(punch_in_time.seconds%3600)//60}')
+
                 for request in driver.requests:
                     if 'https://people.zoho.com/hrmsbct/viewPhoto' in request.url:
                         headers = dict(request.headers)
