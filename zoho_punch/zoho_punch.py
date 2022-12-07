@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import random
 import re
 import time
 from datetime import datetime, date
@@ -13,7 +14,6 @@ import requests
 from hidden import secrets
 from infi.systray import SysTrayIcon
 from win10toast import ToastNotifier
-
 # import pystray
 
 current_path = os.path.dirname(os.path.abspath(__file__))
@@ -69,7 +69,6 @@ class Crawler(Spider):
                             f"Punch Out Failed! Hours not complete': "
                             f"{in_time.strftime('%m/%d/%Y, %H:%M:%S')}. Time passed: "
                             f"{self.time_passed.seconds//3600}:{int((self.time_passed.seconds%3600)//60)}")
-                        # time.sleep(5)
                         message = f'Checked In: {in_time.strftime(" %H:%M")} | Hours: {self.time_passed.seconds//3600}:{(self.time_passed.seconds%3600)//60}'
                         self.systray.update(self.green_icon, message)
                         self.notify(message, self.green_icon)
@@ -83,10 +82,14 @@ class Crawler(Spider):
                     if datetime.now().day != out_time.day:
                         self.logger.info(f"New day. Punching In.")
                         self.punch("punchIn")
+                    else:
+                        self.logger.info(f"Extending 15 minutes")
+                        self.punch("punchIn", notify=False)
+                        self.punch("punchOut", notify=False)
                 else:
                     self.logger.info("New Beginnings")
                     self.punch("punchIn")
-            time.sleep(60*15)
+            time.sleep(random.randint(55, 60)*random.randint(15, 20))
 
     def punch_in_context(self, *args):
         self.punch("punchIn", notify=True)
@@ -125,18 +128,20 @@ class Crawler(Spider):
                         os.remove('zoho_punched_out')
                         message = f'Checked In: {punch_time.strftime(" %H:%M")}'
                         self.systray.update(self.green_icon, message)
-                        self.notify(message, self.green_icon, True)
+                        self.notify(message, self.green_icon, notify)
                     if punch_type == "punchOut":
                         self.logger.info(
                             f"Punch Out Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
                         pickle.dump(punch_time, open('zoho_punched_out', 'wb'))
                         os.remove('zoho_punched_in')
-                        message = f'Checked Out: {punch_time.strftime(" %H:%M")} | Hours: {self.time_passed.seconds//3600}:{(self.time_passed.seconds%3600)//60}'
+                        message = f'Checked Out: {punch_time.strftime(" %H:%M")} | Hours: {general.json(response, "punchOut", "dayList", "0", "tHrs")}'
                         self.systray.update(self.red_icon, message)
-                        self.notify(message, self.red_icon, True)
+                        self.notify(message, self.red_icon, notify)
             except json.JSONDecoder as e:
                 self.logger.info(f"Session Expired.")
                 self.notify("Session Expired.", self.green_icon, True)
+            except Exception as e:
+                print(e)
         if relogin:
             self.logger.info(f"Session restore started. Opening Zoho")
             data, driver = general.get_url2(url='https://people.zoho.com/hrmsbct/zp#home/dashboard',
@@ -218,8 +223,8 @@ class Crawler(Spider):
         payload = {
             'conreqcsr': str(self.zoho_session["CSRF"]),
             'urlMode': 'home_dashboard',
-            'latitude': '18.5195521',
-            'longitude': '73.9456645',
+            'latitude': secrets['latitude'],
+            'longitude': secrets['longitude'],
             'accuracy': '21.613'}
         headers = {
             'Accept': '*/*',
