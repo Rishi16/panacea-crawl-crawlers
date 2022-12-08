@@ -233,7 +233,6 @@ class Crawler(Spider):
                     message = f'Checked Out: {punch_time.strftime(" %H:%M")} | Hours: {self.time_passed.seconds//3600}:{(self.time_passed.seconds%3600)//60}'
                     self.update_punch(punch_time, punch_type, message)
 
-
             for request in driver.requests:
                 if 'https://people.zoho.com/hrmsbct/viewPhoto' in request.url:
                     headers = dict(request.headers)
