@@ -75,7 +75,7 @@ class Crawler(Spider):
                             self.logger.info(f"Zoho Says you are checked in")
                             new_day = False
                             # Missed Checking out other day cope
-                            if not os.path.exists('zoho_punched_in'):
+                            if os.path.exists('zoho_punched_in'):
                                 in_time = pickle.load(open('zoho_punched_in', 'rb'))
                                 if datetime.now().day != in_time.day:
                                     new_day = True
