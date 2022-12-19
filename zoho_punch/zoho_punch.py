@@ -52,9 +52,14 @@ class Crawler(Spider):
                     self.logger.info(f"Zoho Session: {json.dumps(self.zoho_session)}")
                     self.logger.info(f"Status check")
                     response = self.request_zoho(f"https://people.zoho.com/hrmsbct/AttendanceAction.zp")
-                    if response and "allowedToCheckIn" in response:
+                    if response is False:
+                        time.sleep(60)
+                        continue
+                    elif "allowedToCheckIn" in response:
                         if response["allowedToCheckIn"]:
                             self.logger.info(f"Zoho Says you are checked out")
+                            # manual check out cope
+                            # manual check out cope
                             if not os.path.exists('zoho_punched_out'):
                                 self.logger.info(f"Looks like you checked out manually. Lets punch more.")
                                 if response["response"][-1]["tdate"] != "-":
@@ -68,13 +73,19 @@ class Crawler(Spider):
                             self.logger.info(
                                 f"Looks like you checked in manually. Dont worry I am capable of understanding that.")
                             self.logger.info(f"Zoho Says you are checked in")
+                            new_day = False
+                            # Missed Checking out other day cope
                             if not os.path.exists('zoho_punched_in'):
+                                in_time = pickle.load(open('zoho_punched_in', 'rb'))
+                                if datetime.now().day != in_time.day:
+                                    new_day = True
+                            # Manual check in cope
+                            if not os.path.exists('zoho_punched_in') or new_day:
                                 punch_time = response["response"][0]["fdate"]
                                 punch_time = datetime.strptime(punch_time.strip(), "%d-%b-%Y - %I:%M %p")
                                 pickle.dump(punch_time, open("zoho_punched_in", 'wb'))
                                 if os.path.exists('zoho_punched_out'):
                                     os.remove('zoho_punched_out')
-
                     else:
                         self.automated_login()
                     # To bored to do it. Quiting half way. I am a quitter
@@ -90,7 +101,7 @@ class Crawler(Spider):
                     self.time_passed = datetime.now() - in_time
                     if self.time_passed.seconds > 9 * 60 * 60 and self.time_passed.days == 0:
                         self.logger.info(f"Punching Out. 9 Hrs Complete.")
-                        self.punch("punchOut")
+                        self.punch("punchOut", True)
                     else:
                         self.logger.info(
                             f"Punch Out Failed! Hours not complete': "
@@ -125,12 +136,18 @@ class Crawler(Spider):
         self.punch("punchOut", notify=True)
 
     def update_punch(self, punch_time, punch_type, message, notify=False):
-        dump_file = "zoho_punched_in" if punch_type == "punchIn" else "zoho_punched_out"
-        remove_file = "zoho_punched_out" if punch_type == "punchIn" else "zoho_punched_in"
+        if punch_type == "punchIn":
+            dump_file = "zoho_punched_in"
+            remove_file = "zoho_punched_out"
+            icon = self.green_icon
+        else:
+            dump_file = "zoho_punched_out"
+            remove_file = "zoho_punched_in"
+            icon = self.red_icon
         pickle.dump(punch_time, open(dump_file, 'wb'))
         os.remove(remove_file)
-        self.systray.update(self.green_icon, message)
-        self.notify(message, self.green_icon, notify)
+        self.systray.update(icon, message)
+        self.notify(message, icon, notify)
 
     def notify(self, notification, icon, notify=False):
         if notify:
@@ -160,7 +177,7 @@ class Crawler(Spider):
                         self.logger.info(
                             f"Punch Out Successful: {punch_time.strftime('%m/%d/%Y, %H:%M:%S')}")
                         message = f'Checked Out: {punch_time.strftime(" %H:%M")} | Hours: {general.json(response, "punchOut", "dayList", "0", "tHrs")}'
-                        self.update_punch(punch_time,punch_type, message, notify)
+                        self.update_punch(punch_time, punch_type, message, notify)
 
             except json.JSONDecoder as e:
                 self.logger.info(f"Session Expired.")
@@ -282,6 +299,7 @@ class Crawler(Spider):
                 return response
         except Exception as e:
             self.logger.error(f"Request Error: {general.get_error_line(e)}")
+            return False
 
 
 if __name__ == "__main__":
