@@ -57,10 +57,12 @@ class Crawler(Spider):
                         continue
                     elif "allowedToCheckIn" in response:
                         if response["allowedToCheckIn"]:
-                            self.logger.info(f"Zoho Says you are checked out")
+                            if not response["response"]:
+                                if os.path.exists('zoho_punched_in'):
+                                    os.remove('zoho_punched_in')
                             # manual check out cope
-                            # manual check out cope
-                            if not os.path.exists('zoho_punched_out'):
+                            elif not os.path.exists('zoho_punched_out'):
+                                self.logger.info(f"Zoho Says you are checked out")
                                 self.logger.info(f"Looks like you checked out manually. Lets punch more.")
                                 if response["response"][-1]["tdate"] != "-":
                                     punch_time = response["response"][-1]["tdate"]
@@ -70,8 +72,6 @@ class Crawler(Spider):
                                     if os.path.exists('zoho_punched_in'):
                                         os.remove('zoho_punched_in')
                         else:
-                            self.logger.info(
-                                f"Looks like you checked in manually. Dont worry I am capable of understanding that.")
                             self.logger.info(f"Zoho Says you are checked in")
                             new_day = False
                             # Missed Checking out other day cope
@@ -81,6 +81,9 @@ class Crawler(Spider):
                                     new_day = True
                             # Manual check in cope
                             if not os.path.exists('zoho_punched_in') or new_day:
+                                self.logger.info(
+                                    f"Looks like you checked in manually. Dont worry I am capable "
+                                    f"of understanding that.")
                                 punch_time = response["response"][0]["fdate"]
                                 punch_time = datetime.strptime(punch_time.strip(), "%d-%b-%Y - %I:%M %p")
                                 pickle.dump(punch_time, open("zoho_punched_in", 'wb'))
