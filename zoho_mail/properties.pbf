@@ -1,8 +1,9 @@
-region=AE
+region=IN
 number_of_threads=1-200
 num_of_attempts=10
 time_out=5
-resume_crawl=on
+resume_crawl=off
 user_name=rishikesh.shendkar
-clear_selenium_session=1
 encoding=utf8
+log_level=INFO
+clear_selenium_session=0
