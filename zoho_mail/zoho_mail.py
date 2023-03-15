@@ -51,20 +51,20 @@ def read_input():
         to_list = list(zip(df.List, df.Name))
         subject = df.Subject.iloc[0]
         body = df.Body.iloc[0]
-        try:
-            start_datetime = df["Start Datetime"].iloc[0].to_pydatetime()
-            end_datetime = df["End Datetime"].iloc[0].to_pydatetime()
-            if start_datetime < datetime.now():
-                print("START DATETIME CANT BE OLDER THAN CURRENT TIME. PLEASE FIX IT.")
-                sys.exit(1)
-            if start_datetime > end_datetime:
-                print("END DATETIME CANT BE OLDER THAN START DATETIME. PLEASE FIX IT.")
-                exit(1)
-        except Exception as e:
-            print(
-                "INCORRECT DATEFORMAT IN START OR END DATETIME. CORRECT DATEFORMAT: DD-MM-YYYY HH:MM"
-            )
-            exit(1)
+        # try:
+        #     start_datetime = df["Start Datetime"].iloc[0].to_pydatetime()
+        #     end_datetime = df["End Datetime"].iloc[0].to_pydatetime()
+        #     if start_datetime < datetime.now():
+        #         print("START DATETIME CANT BE OLDER THAN CURRENT TIME. PLEASE FIX IT.")
+        #         sys.exit(1)
+        #     if start_datetime > end_datetime:
+        #         print("END DATETIME CANT BE OLDER THAN START DATETIME. PLEASE FIX IT.")
+        #         exit(1)
+        # except Exception as e:
+        #     print(
+        #         "INCORRECT DATEFORMAT IN START OR END DATETIME. CORRECT DATEFORMAT: DD-MM-YYYY HH:MM"
+        #     )
+        #     exit(1)
         interval = df["Email Interval"].iloc[0]
         return to_list, subject, body, start_datetime, end_datetime, interval
     except Exception as e:

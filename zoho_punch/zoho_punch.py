@@ -370,8 +370,10 @@ class Crawler(Spider):
             ).json()
             if response.get("msg", {}).get("error", ""):
                 self.notify(response["msg"]["error"], self.green_icon, True)
+                return {}
             elif response.get("code") == "INVALID_CSRF_TOKEN":
                 self.notify("Session Expired.", self.green_icon, True)
+                return {}
             else:
                 return response
         except Exception as e:
