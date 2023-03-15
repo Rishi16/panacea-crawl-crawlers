@@ -66,7 +66,7 @@ def read_input():
         #     )
         #     exit(1)
         interval = df["Email Interval"].iloc[0]
-        return to_list, subject, body, start_datetime, end_datetime, interval
+        return to_list, subject, body, interval
     except Exception as e:
         print(f"READING EXCEL FAILED CONTACT PACK8 TECH: {general.get_error_line(e)}")
         exit(1)
@@ -102,8 +102,6 @@ class Crawler(Spider):
             self.to_list,
             self.subject,
             self.body_template,
-            self.start_datetime,
-            self.end_datetime,
             self.interval,
         ) = read_input()
 
