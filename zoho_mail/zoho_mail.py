@@ -12,6 +12,7 @@ from random import randrange
 
 import panacea_crawl.general as general
 import pandas as pd
+import pyautogui
 import requests
 from PIL import Image
 from infi.systray import SysTrayIcon
@@ -66,7 +67,8 @@ def read_input():
         #     )
         #     exit(1)
         interval = df["Email Interval"].iloc[0]
-        return to_list, subject, body, interval
+        attachment = df["Attachment"].iloc[0]
+        return to_list, subject, body, interval, attachment
     except Exception as e:
         print(f"READING EXCEL FAILED CONTACT PACK8 TECH: {general.get_error_line(e)}")
         exit(1)
@@ -103,6 +105,7 @@ class Crawler(Spider):
             self.subject,
             self.body_template,
             self.interval,
+            self.attachment,
         ) = read_input()
 
     # Crawler begins here.
@@ -156,6 +159,20 @@ class Crawler(Spider):
                         '//div[@class="SCm"]//div[contains(@class, "subject-field")]/input',
                         click=True,
                     )
+                    general.click(driver,
+                                  '//div[@class="SCm"]//i[@class="zmetoolbar__btn__icon zmetbi-attachment"]')
+                    time.sleep(1)
+                    general.click(driver, '//li[@id="myAttachments"]')
+                    time.sleep(1)
+                    general.click(driver, '//li[@id="zmDesktop"]')
+                    time.sleep(1)
+                    pyautogui.press('esc')
+                    time.sleep(1)
+                    uploader = driver.find_element(By.XPATH, '//input[@type="file"]')
+
+                    uploader.send_keys(self.attachment)
+                    general.click(driver,
+                                  '//div[@id="0_tabPopupButton"]/span[contains(text(),"Attach")]')
                     for iframe in driver.find_elements(By.TAG_NAME, "iframe"):
                         driver.switch_to.frame(iframe)
                         if general.find_elements_driver(
@@ -176,7 +193,9 @@ class Crawler(Spider):
                         body_div.send_keys(new_line)
                     driver.switch_to.parent_frame()
                     time.sleep(3)
-                    general.click(driver, '//button[@aria-label="Send"]')
+                    while general.find_elements_driver(driver, '//div[@class="SCm"]//button[@aria-label="Send"]'):
+                        general.click(driver, '//div[@class="SCm"]//button[@aria-label="Send"]')
+                        time.sleep(3)
                     time.sleep(self.interval * 60)
                     # general.click(driver, '//div[@class="SCm"]//i[@class="msi-schdRecur zmbtn__icon "]')
                     # while not ('//section[@class="//section[@class="zmdialog zmdialog--md zmdialog--top zmail-schdlrcrrng"]//span[@class="zmradio"]/input[@value="custom"]'):
