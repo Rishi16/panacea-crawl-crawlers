@@ -1,0 +1,24 @@
+Category URL    Category
+https://www.kitepackaging.co.uk//scp/boxes/cardboard-boxes/	Boxes & cardboard boxes
+https://www.kitepackaging.co.uk//mcp/pallet-wrap/	Pallet wrap & stretch film
+https://www.kitepackaging.co.uk//mcp/tapes/	Packaging tapes
+https://www.kitepackaging.co.uk//mcp/bubble-wrap/	Bubble wrap
+https://www.kitepackaging.co.uk//scp/protection-and-wrapping/voidfill-and-loosefill/	Void fill & cushioning
+https://www.kitepackaging.co.uk//mcp/cardboard-sheets-and-rolls/	Cardboard sheets & rolls
+https://www.kitepackaging.co.uk//mcp/bags/	Polythene & paper bags
+https://www.kitepackaging.co.uk//mcp/polythene-rolls-and-tubing/	Polythene rolls & tubing
+https://www.kitepackaging.co.uk//mcp/labels/	Labels & printers
+https://www.kitepackaging.co.uk//mcp/postal-products/	Postal packaging
+https://www.kitepackaging.co.uk//mcp/food-packaging/	Food packaging
+https://www.kitepackaging.co.uk//mcp/papers/	Paper sheets & rolls
+https://www.kitepackaging.co.uk//mcp/layer-pads-and-sheets/	Layer pads & sheets
+https://www.kitepackaging.co.uk//mcp/pallets-and-pallet-boxes/	Pallets and pallet boxes
+https://www.kitepackaging.co.uk//scp/protection-and-wrapping/foam-protection/	Foam protection
+https://www.kitepackaging.co.uk//mcp/heat-shrink-and-vacuum-packaging/	Heat, shrink & vacuum
+https://www.kitepackaging.co.uk//mcp/strapping-and-ties/	Strapping, ties & bands 
+https://www.kitepackaging.co.uk//mcp/chilled-packaging/	Chilled packaging
+https://www.kitepackaging.co.uk//mcp/gift-packaging/
+https://www.kitepackaging.co.uk//mcp/desiccants-and-vci/	Silica gel, desiccants & VCI
+https://www.kitepackaging.co.uk//mcp/packroom-equipment/	Packroom equipment
+https://www.kitepackaging.co.uk//mcp/staples-and-glue/	Staples & glue
+https://www.kitepackaging.co.uk//mcp/environmental-products/	Environmental

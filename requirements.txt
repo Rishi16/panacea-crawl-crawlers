@@ -5,3 +5,4 @@ Pillow~=9.2.0
 win10toast~=0.9
 infi.systray~=0.1.12
 pyautogui
+wget==3.2

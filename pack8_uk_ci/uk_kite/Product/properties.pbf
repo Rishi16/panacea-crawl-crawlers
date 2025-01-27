@@ -1,0 +1,8 @@
+region=UK
+number_of_threads=5-200
+num_of_attempts=10
+time_out=5
+resume_crawl=on
+user_name=rishikesh.shendkar
+encoding=utf8
+completed=1
